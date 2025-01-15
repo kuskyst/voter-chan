@@ -1,72 +1,103 @@
 <template>
-  <div>
-    <h1>リアルタイム投票</h1>
+  <v-container class="text-center">
+    <v-row class="mb-5">
+      <v-col cols="12">
+        <v-btn class="mx-2" color="primary" @click="vote(0)">選択肢 1</v-btn>
+        <v-btn class="mx-2" color="success" @click="vote(1)">選択肢 2</v-btn>
+        <v-btn class="mx-2" color="warning" @click="vote(2)">選択肢 3</v-btn>
+      </v-col>
+    </v-row>
 
-    <div>
-      <h2>投票結果</h2>
-      <BarChart :data="chartData" :options="chartOptions" />
-    </div>
+    <v-row>
+      <v-col cols="12">
+        <v-divider></v-divider>
+        <h2>投票結果</h2>
 
-    <div>
-      <button @click="vote('option1')">オプション 1</button>
-      <button @click="vote('option2')">オプション 2</button>
-      <button @click="vote('option3')">オプション 3</button>
-    </div>
-  </div>
+        <v-row>
+          <v-col cols="12" sm="8" offset-sm="2">
+            <Bar :data="chartData" :options="chartOptions" />
+          </v-col>
+        </v-row>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
-import { db } from "~/plugins/firebase";
-import { Bar } from "vue-chartjs";
-import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js';
+import { ref, watch } from 'vue'
+import { Bar } from 'vue-chartjs'
+import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js'
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+
+const choices = ref([
+  { label: '選択肢 1', votes: 0 },
+  { label: '選択肢 2', votes: 0 },
+  { label: '選択肢 3', votes: 0 }
+])
+
+const vote = (index) => {
+  choices.value[index].votes++
+}
 
 const chartData = ref({
-  labels: ['オプション 1', 'オプション 2', 'オプション 3'],
-  datasets: [
-    {
-      label: '投票数',
-      data: [0, 0, 0],
-      backgroundColor: 'rgba(75, 192, 192, 0.2)',
-      borderColor: 'rgba(75, 192, 192, 1)',
-      borderWidth: 1
-    }
-  ]
-});
+  labels: choices.value.map(choice => choice.label),
+  datasets: [{
+    label: '投票数',
+    data: choices.value.map(choice => choice.votes),
+    backgroundColor: ['#42A5F5', '#66BB6A', '#FFCA28'],
+    borderColor: ['#1E88E5', '#43A047', '#FFA000'],
+    borderWidth: 1
+  }]
+})
 
-const chartOptions = {
+const chartOptions = ref({
   responsive: true,
   plugins: {
-    title: {
-      display: true,
-      text: '投票結果'
+    legend: {
+      position: 'top',
+    },
+    tooltip: {
+      callbacks: {
+        label: (tooltipItem) => `${tooltipItem.raw}票`
+      }
+    }
+  },
+  scales: {
+    x: {
+      beginAtZero: true,
+    },
+    y: {
+      beginAtZero: true,
     }
   }
-};
+})
 
-const vote = (option) => {
-  const voteRef = db.collection('votes').doc(option);
-  voteRef.update({
-    count: firebase.firestore.FieldValue.increment(1)
-  });
-};
+watch(choices, () => {
+  chartData.value = {
+    labels: choices.value.map(choice => choice.label),
+    datasets: [{
+      label: '投票数',
+      data: choices.value.map(choice => choice.votes),
+      backgroundColor: ['#42A5F5', '#66BB6A', '#FFCA28'],
+      borderColor: ['#1E88E5', '#43A047', '#FFA000'],
+      borderWidth: 1
+    }]
+  }
+}, { deep: true })
 
-const fetchVotes = () => {
-  db.collection('votes').onSnapshot((snapshot) => {
-    let data = [0, 0, 0];
-    snapshot.forEach(doc => {
-      const { count } = doc.data();
-      if (doc.id === 'option1') data[0] = count;
-      if (doc.id === 'option2') data[1] = count;
-      if (doc.id === 'option3') data[2] = count;
-    });
-    chartData.value.datasets[0].data = data;
-  });
-};
-
-onMounted(() => {
-  fetchVotes();
-});
 </script>
+
+<style scoped>
+.v-btn {
+  font-size: 16px;
+}
+
+h2 {
+  margin-bottom: 20px;
+}
+
+.v-divider {
+  margin: 20px 0;
+}
+</style>
